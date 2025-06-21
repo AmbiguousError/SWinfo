@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star Wars API Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #000;
+        }
+        .orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+        .btn {
+            @apply px-6 py-3 text-lg text-white font-bold rounded-lg shadow-md transition-all duration-300 ease-in-out;
+        }
+        .btn-yellow {
+            @apply bg-yellow-500 hover:bg-yellow-600;
+        }
+        .btn-glow {
+            box-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 15px #f59e0b, 0 0 20px #f59e0b, 0 0 25px #f59e0b, 0 0 30px #f59e0b, 0 0 35px #f59e0b;
+        }
+        .card {
+            @apply bg-gray-900 bg-opacity-80 border border-gray-700 rounded-xl p-6 shadow-2xl transition-all duration-500 transform;
+        }
+        .card-enter {
+            @apply opacity-0 -translate-y-4;
+        }
+        .card-enter-active {
+            @apply opacity-100 translate-y-0;
+        }
+        #loader {
+            border-top-color: #f59e0b;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="text-gray-200">
+
+    <div class="container mx-auto p-4 md:p-8 text-center">
+        <header class="mb-8">
+            <h1 class="text-4xl md:text-6xl font-bold orbitron text-yellow-400" style="text-shadow: 2px 2px 4px #000;">Star Wars Character Explorer</h1>
+            <p class="text-lg md:text-xl text-gray-400 mt-2">Click the button to get a random character from the galaxy...</p>
+        </header>
+
+        <!-- Main Button -->
+        <div id="category-buttons" class="flex flex-wrap justify-center mb-8 gap-4">
+            <button id="main-button" class="btn btn-yellow btn-glow">Get Random Character</button>
+        </div>
+        
+        <!-- Container for API data -->
+        <div id="data-container" class="min-h-[300px] flex items-center justify-center">
+            <!-- Loader -->
+            <div id="loader" class="hidden w-16 h-16 border-4 border-gray-600 rounded-full"></div>
+            <!-- Data Card -->
+            <div id="data-card" class="card hidden w-full max-w-2xl"></div>
+             <!-- Message Box -->
+            <div id="message-box" class="hidden text-yellow-400 text-xl"></div>
+        </div>
+
+    </div>
+
+    <script>
+        const mainButton = document.getElementById('main-button');
+        const dataContainer = document.getElementById('data-container');
+        const dataCard = document.getElementById('data-card');
+        const loader = document.getElementById('loader');
+        const messageBox = document.getElementById('message-box');
+        
+        const API_URL = 'https://rawcdn.githack.com/akabab/starwars-api/0.2.1/api/all.json';
+
+        // Cache for the list of all characters to avoid re-fetching
+        let characterCache = [];
+
+        // Event listener for the main button
+        mainButton.addEventListener('click', fetchRandomCharacter);
+
+        // Fetch a random character
+        async function fetchRandomCharacter() {
+            showLoader();
+            try {
+                // 1. Fetch all characters if the cache is empty
+                if (characterCache.length === 0) {
+                    const response = await fetch(API_URL);
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch character data from the API.');
+                    }
+                    characterCache = await response.json();
+                }
+
+                // 2. Pick a random character from the cache
+                const randomCharacter = characterCache[Math.floor(Math.random() * characterCache.length)];
+                
+                // 3. Display the character's data
+                displayData(randomCharacter);
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                displayMessage(error.message);
+            } finally {
+                hideLoader();
+            }
+        }
+        
+        // Display the fetched data in the card
+        function displayData(data) {
+            dataCard.innerHTML = formatData(data);
+            dataCard.classList.remove('hidden');
+            dataCard.classList.remove('card-enter', 'card-enter-active');
+            // Trigger transition
+            requestAnimationFrame(() => {
+                dataCard.classList.add('card-enter', 'card-enter-active');
+            });
+            messageBox.classList.add('hidden');
+        }
+
+        // Format data into categorized HTML
+        function formatData(data) {
+            // Helper to make labels more readable (e.g., "hairColor" -> "Hair Color")
+            const formatLabel = (key) => key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+            
+            // Helper function to create a list item if the value exists
+            const createListItem = (label, value) => {
+                if (!value || value.length === 0 || value === -1) return '';
+                let displayValue = value;
+                if (Array.isArray(value)) {
+                    displayValue = `<ul>${value.map(item => `<li class="ml-4 list-disc">${item}</li>`).join('')}</ul>`;
+                     return `<li><strong class="text-yellow-500">${label}:</strong>${displayValue}</li>`;
+                }
+                return `<li><strong class="text-yellow-500">${label}:</strong> ${displayValue}</li>`;
+            };
+            
+            // Helper to create a section
+            const createSection = (title, fields) => {
+                const items = Object.entries(fields)
+                    .map(([label, value]) => createListItem(label, value))
+                    .join('');
+                if (!items) return ''; // Don't create empty sections
+                return `<h3 class="text-xl orbitron text-yellow-400 mt-4 mb-2 border-b border-gray-700">${title}</h3><ul class="space-y-2">${items}</ul>`;
+            };
+
+            let content = `
+                ${data.image ? `<img src="${data.image}" alt="Image of ${data.name}" class="w-full h-auto rounded-lg mb-4" onerror="this.style.display='none'">` : ''}
+                <h2 class="text-3xl font-bold orbitron text-yellow-400 mb-4">${data.name}</h2>
+            `;
+            
+            const general = {
+                'Species': data.species,
+                'Gender': data.gender,
+                'Height (m)': data.height,
+                'Mass (kg)': data.mass,
+            };
+
+            const appearance = {
+                'Hair Color': data.hairColor,
+                'Eye Color': data.eyeColor,
+                'Skin Color': data.skinColor,
+                'Cybernetics': data.cybernetics
+            };
+            
+            const biography = {
+                 'Homeworld': data.homeworld,
+                 'Born': data.born,
+                 'Born Location': data.bornLocation,
+                 'Died': data.died,
+                 'Died Location': data.diedLocation,
+            };
+
+            const affiliations = {
+                'Affiliations': data.affiliations,
+                'Former Affiliations': data.formerAffiliations,
+            };
+
+            const relationships = {
+                'Masters': data.masters,
+                'Apprentices': data.apprentices,
+            };
+
+             const links = {
+                'Wiki': data.wiki ? `<a href="${data.wiki}" target="_blank" class="text-blue-400 hover:underline">View on Wookieepedia</a>` : ''
+             };
+
+            content += createSection('General', general);
+            content += createSection('Appearance', appearance);
+            content += createSection('Biography', biography);
+            content += createSection('Allegiance', affiliations);
+            content += createSection('Relationships', relationships);
+            content += createSection('Links', links);
+
+            content += `<button class="btn btn-yellow mt-6 w-full" onclick="fetchRandomCharacter()">Get Another Character</button>`;
+            return content;
+        }
+
+        // Show a message (e.g., for errors)
+        function displayMessage(message) {
+            messageBox.textContent = `Error: ${message}. Please try again.`;
+            messageBox.classList.remove('hidden');
+            dataCard.classList.add('hidden');
+        }
+        
+        // Show the loading spinner
+        function showLoader() {
+            loader.classList.remove('hidden');
+            dataCard.classList.add('hidden');
+            messageBox.classList.add('hidden');
+        }
+
+        // Hide the loading spinner
+        function hideLoader() {
+            loader.classList.add('hidden');
+        }
+
+    </script>
+</body>
+</html>
