@@ -1,643 +1,508 @@
-import React, { useState, useEffect, useCallback } from 'react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star Wars Top Trumps</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom Font - Star Jedi */
+        @font-face {
+            font-family: 'Star Jedi';
+            src: url('https://raw.githubusercontent.com/Anupam-dps/Star-Wars-Font/main/starjedi/Starjedi.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        .font-starjedi {
+            font-family: 'Star Jedi', sans-serif;
+        }
+        /* Basic styles for responsive canvas, though not directly used for cards, good practice */
+        body {
+            background-color: #000;
+            font-family: 'Inter', sans-serif;
+        }
+        .min-h-screen {
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 font-inter flex flex-col items-center justify-center p-4">
 
-// Hardcoded fallback characters in case the API is unavailable or returns no suitable data
-const FALLBACK_CHARACTERS = [
-    {
-        "name": "Luke Skywalker",
-        "height": 172,
-        "mass": 77,
-        "films": ["A New Hope", "The Empire Strikes Back", "Return of the Jedi"],
-        "starships": ["X-wing", "Millennium Falcon"],
-        "vehicles": ["Landspeeder"],
-        "born": 19, // Birth year in BBY
-        "image": "https://placehold.co/100x150/000000/FFFFFF?text=Luke"
-    },
-    {
-        "name": "Darth Vader",
-        "height": 202,
-        "mass": 136,
-        "films": ["A New Hope", "The Empire Strikes Back", "Return of the Jedi", "Revenge of the Sith"],
-        "starships": ["TIE Advanced x1"],
-        "vehicles": [],
-        "born": 41.9,
-        "image": "https://placehold.co/100x150/000000/FFFFFF?text=Vader"
-    },
-    {
-        "name": "Leia Organa",
-        "height": 150,
-        "mass": 49,
-        "films": ["A New Hope", "The Empire Strikes Back", "Return of the Jedi"],
-        "starships": [],
-        "vehicles": [],
-        "born": 19,
-        "image": "https://placehold.co/100x150/000000/FFFFFF?text=Leia"
-    },
-    {
-        "name": "Han Solo",
-        "height": 180,
-        "mass": 80,
-        "films": ["A New Hope", "The Empire Strikes Back", "Return of the Jedi"],
-        "starships": ["Millennium Falcon"],
-        "vehicles": ["Landspeeder"],
-        "born": 29,
-        "image": "https://placehold.co/100x150/000000/FFFFFF?text=Han"
-    },
-    {
-        "name": "Chewbacca",
-        "height": 228,
-        "mass": 112,
-        "films": ["A New Hope", "The Empire Strikes Back", "Return of the Jedi"],
-        "starships": ["Millennium Falcon"],
-        "vehicles": [],
-        "born": 200,
-        "image": "https://placehold.co/100x150/000000/FFFFFF?text=Chewie"
-    },
-    {
-        "name": "Obi-Wan Kenobi",
-        "height": 182,
-        "mass": 77,
-        "films": ["A New Hope", "Revenge of the Sith", "Attack of the Clones"],
-        "starships": ["Jedi Starfighter"],
-        "vehicles": ["Jedi Interceptor"],
-        "born": 57,
-        "image": "https://placehold.co/100x150/000000/FFFFFF?text=Obi-Wan"
-    },
-    {
-        "name": "Yoda",
-        "height": 66,
-        "mass": 17,
-        "films": ["The Empire Strikes Back", "Return of the Jedi", "Attack of the Clones", "Revenge of the Sith", "The Phantom Menace"],
-        "starships": [],
-        "vehicles": [],
-        "born": 896,
-        "image": "https://placehold.co/100x150/000000/FFFFFF?text=Yoda"
-    },
-    {
-        "name": "Anakin Skywalker",
-        "height": 188,
-        "mass": 84,
-        "films": ["The Phantom Menace", "Attack of the Clones", "Revenge of the Sith"],
-        "starships": ["Naboo N-1 Starfighter", "Jedi Interceptor"],
-        "vehicles": ["Podracer"],
-        "born": 41.9,
-        "image": "https://placehold.co/100x150/000000/FFFFFF?text=Anakin"
-    },
-    {
-        "name": "Palpatine",
-        "height": 170,
-        "mass": 75,
-        "films": ["The Phantom Menace", "Attack of the Clones", "Revenge of the Sith", "Return of the Jedi"],
-        "starships": [],
-        "vehicles": [],
-        "born": 82,
-        "image": "https://placehold.co/100x150/000000/FFFFFF?text=Palpatine"
-    },
-    {
-        "name": "Boba Fett",
-        "height": 183,
-        "mass": 78,
-        "films": ["The Empire Strikes Back", "Return of the Jedi"],
-        "starships": ["Slave I"],
-        "vehicles": [],
-        "born": 31.5,
-        "image": "https://placehold.co/100x150/000000/FFFFFF?text=Boba"
-    }
-];
+    <h1 class="text-5xl font-starjedi text-yellow-400 mb-8 tracking-widest text-center">
+        Star Wars Top Trumps
+    </h1>
 
+    <!-- API Status Message -->
+    <div id="api-status-message" class="text-center py-2 px-4 rounded-lg mb-4 hidden"></div>
 
-// Main App component for the Star Wars Top Trumps game
-const App = () => {
-    // State variables to manage the game's data and UI
-    const [characters, setCharacters] = useState([]); // All fetched characters (master list)
-    const [deck, setDeck] = useState([]);             // Current deck of characters for the game
-    const [playerCard, setPlayerCard] = useState(null); // Current card for the player
-    const [yodaCard, setYodaCard] = useState(null);     // Current card for Yoda
-    const [playerScore, setPlayerScore] = useState(0); // Player's score
-    const [yodaScore, setYodaScore] = useState(0);     // Yoda's score
-    const [yodaSpeech, setYodaSpeech] = useState("Greetings, young Padawan! Ready to play, you are?"); // Yoda's current dialogue
-    const [gamePhase, setGamePhase] = useState('start'); // 'start', 'deal', 'choose_stat', 'result'
-    const [message, setMessage] = useState('');         // General game messages
-    const [isLoading, setIsLoading] = useState(true);   // Loading state for API fetch
-    const [currentStat, setCurrentStat] = useState(null); // The stat chosen for comparison
-    const [yodaSaysTimer, setYodaSaysTimer] = useState(null); // Timer for Yoda's speech display
-    const [yodaCardVisible, setYodaCardVisible] = useState(false); // New state to control Yoda's card visibility
-    const [apiStatusMessage, setApiStatusMessage] = useState(''); // New state for API status message
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" class="text-xl text-green-400">Loading characters... The Force, it loads.</div>
 
-    // Function to fetch Star Wars character data from the API with retry logic
-    const fetchCharacters = useCallback(async (retries = 3) => {
-        setIsLoading(true);
-        // Using the Akabab Star Wars API as it provides images and direct film/starship/vehicle arrays
-        const apiUrl = 'https://rawcdn.githack.com/akabab/starwars-api/0.2.1/api/all.json';
-        let charactersData = []; 
-        let apiCallSuccessful = false; // Tracks if the API call itself succeeded
-        let suitableCharactersFound = false; // Tracks if enough valid characters were found
+    <!-- Game Content Container (hidden until loaded) -->
+    <div id="game-content" class="hidden flex flex-col items-center w-full">
+        <!-- Scores Display -->
+        <div class="flex justify-center items-center mb-8 bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 w-full max-w-md">
+            <span class="text-2xl font-bold text-blue-400 mr-4">Player: <span id="player-score">0</span></span>
+            <span class="text-xl font-medium text-gray-400">vs</span>
+            <span class="text-2xl font-bold text-green-400 ml-4">Yoda: <span id="yoda-score">0</span></span>
+        </div>
 
-        try {
-            const response = await fetch(apiUrl);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            // The Akabab API directly returns an array of characters
-            charactersData = await response.json(); 
-            apiCallSuccessful = true; // API call succeeded
+        <!-- Yoda Speech Bubble -->
+        <div id="yoda-speech-bubble" class="relative mb-8 p-4 bg-green-700 text-white rounded-2xl shadow-xl border-2 border-green-500 max-w-md w-full text-center transition-opacity duration-500 opacity-0"
+             style="transform: translateY(20px);">
+            <div class="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[10px] border-l-transparent border-r-transparent border-t-green-700"></div>
+            <p id="yoda-speech-text" class="font-semibold text-lg italic">Greetings, young Padawan! Ready to play, you are?</p>
+        </div>
 
-            // Ensure charactersData is an array
-            if (!Array.isArray(charactersData)) {
-                console.error("Akabab API response is not a direct array:", charactersData);
-                throw new Error("API response did not contain an array of characters.");
-            }
+        <!-- Game Cards Area -->
+        <div class="flex flex-col md:flex-row justify-center items-center gap-8 mb-8 w-full">
+            <div class="flex flex-col items-center">
+                <h2 class="text-xl font-bold mb-4 text-blue-300">Your Card</h2>
+                <div id="player-card-container">
+                    <!-- Player card will be rendered here -->
+                </div>
+            </div>
+            <div class="text-3xl font-starjedi text-yellow-300 hidden md:block">VS</div>
+            <div class="flex flex-col items-center">
+                <h2 class="text-xl font-bold mb-4 text-green-300">Yoda's Card</h2>
+                <div id="yoda-card-container">
+                    <!-- Yoda's card (hidden or revealed) will be rendered here -->
+                </div>
+            </div>
+        </div>
 
-            // Filter characters: must have height, mass (numeric), and a valid image URL
-            const filteredAndParsedCharacters = charactersData.filter(char =>
-                // Ensure required numerical stats are present and valid
-                char.mass != null && char.height != null &&
-                !isNaN(parseFloat(char.mass)) && !isNaN(parseFloat(char.height)) &&
-                // Ensure a valid image URL exists and relevant arrays are present
-                char.image && typeof char.image === 'string' && char.image.trim() !== '' &&
-                Array.isArray(char.films) && Array.isArray(char.starships) && Array.isArray(char.vehicles)
-            ).map(char => ({
-                ...char,
-                // Parse numerical stats, defaulting to 0 if invalid or null
-                height: parseFloat(char.height) || 0,
-                mass: parseFloat(char.mass) || 0,
-                born: parseFloat(char.born) || 0, // 'born' property for birth year
-                // Ensure films, starships, vehicles are arrays (already checked in filter, just re-assign)
-                films: char.films,
-                starships: char.starships,
-                vehicles: char.vehicles,
-            }));
+        <!-- Game Messages -->
+        <div id="game-message" class="text-lg text-center my-4 font-semibold text-gray-300 max-w-xl"></div>
 
-            // If suitable characters are found, update master characters list
-            if (filteredAndParsedCharacters.length > 0) {
-                setCharacters(filteredAndParsedCharacters); // Set the master list
-                suitableCharactersFound = true;
-                setApiStatusMessage("Characters loaded from Akabab API. All good, yes!");
-                console.log(`Loaded ${filteredAndParsedCharacters.length} characters from API.`);
+        <!-- Game Controls -->
+        <div class="flex flex-wrap justify-center gap-4 mt-4">
+            <button id="start-game-btn" class="px-8 py-3 bg-yellow-500 text-gray-900 font-bold rounded-full shadow-lg hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105 active:scale-95 border-2 border-yellow-600 hidden">
+                Start Game
+            </button>
+            <button id="deal-next-round-btn" class="px-8 py-3 bg-blue-500 text-white font-bold rounded-full shadow-lg hover:bg-blue-400 transition-all duration-300 transform hover:scale-105 active:scale-95 border-2 border-blue-600 hidden">
+                Deal Next Round
+            </button>
+            <button id="play-again-btn" class="px-8 py-3 bg-red-600 text-white font-bold rounded-full shadow-lg hover:bg-red-500 transition-all duration-300 transform hover:scale-105 active:scale-95 border-2 border-red-700 hidden">
+                Play Again
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // DOM Element References
+        const apiStatusMessageElement = document.getElementById('api-status-message');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const gameContent = document.getElementById('game-content');
+        const playerScoreElement = document.getElementById('player-score');
+        const yodaScoreElement = document.getElementById('yoda-score');
+        const yodaSpeechBubble = document.getElementById('yoda-speech-bubble');
+        const yodaSpeechText = document.getElementById('yoda-speech-text');
+        const playerCardContainer = document.getElementById('player-card-container');
+        const yodaCardContainer = document.getElementById('yoda-card-container');
+        const gameMessageElement = document.getElementById('game-message');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const dealNextRoundBtn = document.getElementById('deal-next-round-btn');
+        const playAgainBtn = document.getElementById('play-again-btn');
+
+        // Game State Variables
+        let characters = []; // Master list of all valid characters from API
+        let deck = [];       // Current deck of characters for the ongoing game
+        let playerCard = null;
+        let yodaCard = null;
+        let playerScore = 0;
+        let yodaScore = 0;
+        let yodaSpeech = "Greetings, young Padawan! Ready to play, you are?";
+        let gamePhase = 'start'; // 'start', 'deal', 'choose_stat', 'result', 'gameOver'
+        let message = '';
+        let currentStat = null;
+        let yodaSaysTimer = null;
+        let yodaCardVisible = false;
+
+        // API Endpoint
+        const API_URL = 'https://rawcdn.githack.com/akabab/starwars-api/0.2.1/api/all.json';
+
+        // Helper function to update API status message in UI
+        function updateApiStatusMessage(msg, isError = false) {
+            apiStatusMessageElement.textContent = msg;
+            apiStatusMessageElement.classList.remove('hidden', 'bg-red-800', 'bg-green-800');
+            if (isError) {
+                apiStatusMessageElement.classList.add('bg-red-800');
             } else {
-                setApiStatusMessage("API fetched, but no suitable characters (with valid image/stats) found. Trying fallback.");
-                console.warn("No suitable characters found from API after filtering.");
+                apiStatusMessageElement.classList.add('bg-green-800');
+            }
+        }
+
+        // Helper function to simulate Yoda's speech patterns
+        function yodaSpeak(text) {
+            if (yodaSaysTimer) {
+                clearTimeout(yodaSaysTimer);
             }
 
-        } catch (error) {
-            console.error("Failed to fetch characters from Akabab API:", error);
-            if (retries > 0 && apiCallSuccessful) { // Only retry if API call itself succeeded but data was bad
-                setApiStatusMessage(`Problem with API data. Retrying fetch... Attempts left: ${retries}.`);
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                fetchCharacters(retries - 1); // Recursive call for retry
-                return; // Prevent further execution in this attempt
-            } else if (retries > 0) { // Retry for network errors
-                setApiStatusMessage(`Network issue. Retrying fetch... Attempts left: ${retries}.`);
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                fetchCharacters(retries - 1); // Recursive call for retry
+            const phrases = [
+                "Hmmmm.", "Much to learn, you still have.", "The Force is strong with this one, yes.",
+                "Patience, young Padawan.", "Do or do not. There is no try.",
+                "Size matters not. Look at me. Judge me by my size, do you?",
+                "Always pass on what you have learned.", "A powerful ally, the Force is.",
+                "Fear is the path to the dark side. Fear leads to anger. Anger leads to hate. Hate leads to suffering.",
+                "Difficult to see. Always in motion is the future.", "That is why you fail.",
+                "Truly wonderful, the mind of a child is.", "Ready, are you? What know you of ready?",
+                "Luminous beings are we, not this crude matter."
+            ];
+
+            let finalSpeech = "";
+            if (text.includes("win")) {
+                finalSpeech = "Win, you did. The Force is strong with you!";
+            } else if (text.includes("lose")) {
+                finalSpeech = "Lost, you have. Much to learn, you still have.";
+            } else if (text.includes("draw")) {
+                finalSpeech = "A draw it is. The Force, balanced it remains.";
+            } else if (text.includes("start")) {
+                finalSpeech = "Greetings, young Padawan! Ready to play, you are?";
+            } else if (text.includes("deal")) {
+                finalSpeech = "Deal, we shall. May the Force be with us.";
+            } else if (text.includes("stat")) {
+                finalSpeech = "Choose your path, you must. A stat, select!";
+            } else if (text.includes("No more cards")) {
+                finalSpeech = text; // Directly use message for deck exhausted
+            } else {
+                finalSpeech = phrases[Math.floor(Math.random() * phrases.length)];
+            }
+            if (Math.random() > 0.5 && !finalSpeech.includes("Hmmmm.")) {
+                 finalSpeech = `${finalSpeech} ${phrases[Math.floor(Math.random() * phrases.length)]}`;
+            }
+
+            yodaSpeechText.textContent = finalSpeech;
+            yodaSpeechBubble.style.opacity = 1;
+            yodaSpeechBubble.style.transform = 'translateY(0)';
+
+            yodaSaysTimer = setTimeout(() => {
+                yodaSpeechBubble.style.opacity = 0;
+                yodaSpeechBubble.style.transform = 'translateY(20px)';
+            }, 8000);
+        }
+
+        // Helper function to shuffle an array (Fisher-Yates algorithm)
+        function shuffleArray(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [
+                    array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        // Function to render a character card
+        function renderCard(containerElement, char, isYodaCard = false, isPlayerCard = false) {
+            if (!char) {
+                containerElement.innerHTML = `
+                    <div class="flex flex-col items-center justify-center p-6 rounded-xl shadow-lg border-2 ${isYodaCard ? 'border-green-500' : (isPlayerCard ? 'border-blue-500' : 'border-gray-400')} bg-gradient-to-br from-gray-700 to-gray-900 text-white font-inter w-64 h-80 transition-all duration-300 transform">
+                        <p class="text-xl font-bold mb-4">No Card</p>
+                        <p class="text-center text-sm">Deal a card to begin.</p>
+                    </div>
+                `;
                 return;
-            } else {
-                setApiStatusMessage("API access failed after retries. Using local fallback characters.");
-                console.warn("Using fallback characters as API fetch failed after all retries.");
             }
-        } finally {
-            // Determine if fallback is needed: if API call failed, or if it succeeded but yielded no suitable chars
-            if (!suitableCharactersFound) {
-                console.log("Loading fallback characters.");
-                const filteredFallback = FALLBACK_CHARACTERS.filter(char =>
-                    char.mass != null && char.height != null && // Already numbers in fallback, just check for null
-                    char.image && typeof char.image === 'string' && char.image.trim() !== '' &&
-                    Array.isArray(char.films) && Array.isArray(char.starships) && Array.isArray(char.vehicles)
+
+            // Map display names to their corresponding API keys for easier stat selection
+            const statDisplayToKey = {
+                "Height (m)": "height", 
+                "Mass (kg)": "mass",
+                "Films": "films",
+                "Starships": "starships",
+                "Vehicles": "vehicles",
+                "Affiliations": "affiliations", // Added affiliations
+                "Birth Year (BBY)": "born"
+            };
+
+            // Safely access values, defaulting to empty array for .length if not present or not array
+            const stats = {
+                "Height (m)": char.height, 
+                "Mass (kg)": char.mass,
+                "Films": Array.isArray(char.films) ? char.films.length : 0, 
+                "Starships": Array.isArray(char.starships) ? char.starships.length : 0, 
+                "Vehicles": Array.isArray(char.vehicles) ? char.vehicles.length : 0, 
+                "Affiliations": Array.isArray(char.affiliations) ? char.affiliations.length : 0, // Count affiliations
+                "Birth Year (BBY)": char.born 
+            };
+
+            let statsHtml = '';
+            for (const [name, value] of Object.entries(stats)) {
+                const statKey = statDisplayToKey[name];
+                const isActive = (currentStat === statKey) ? 'bg-yellow-600 text-black font-bold scale-105' : 'bg-gray-800';
+                const cursorClass = (gamePhase === 'choose_stat' && isPlayerCard) ? 'cursor-pointer hover:bg-gray-700' : '';
+                
+                let displayValue;
+                // For Films, Starships, Vehicles, Affiliations, display '0' explicitly if count is 0
+                if (name === "Films" || name === "Starships" || name === "Vehicles" || name === "Affiliations") {
+                    displayValue = (value === 0) ? 0 : (value === 'unknown' || value === null || isNaN(value)) ? 'N/A' : value;
+                } else {
+                    // For other stats, 'N/A' if 'unknown', null, NaN, or explicitly 0
+                    displayValue = (value === 'unknown' || value === null || isNaN(value) || value === 0) ? 'N/A' : value;
+                }
+                
+                statsHtml += `
+                    <div class="flex justify-between items-center py-2 px-3 rounded-lg mb-1 transition-all duration-200 ${cursorClass} ${isActive}"
+                        data-stat-key="${statKey}">
+                        <span class="text-sm md:text-base">${name}:</span>
+                        <span class="text-sm md:text-base font-semibold">${displayValue}</span>
+                    </div>
+                `;
+            }
+
+            containerElement.innerHTML = `
+                <div class="flex flex-col p-6 rounded-xl shadow-lg border-2 ${isYodaCard ? 'border-green-500' : (isPlayerCard ? 'border-blue-500' : 'border-gray-400')} bg-gradient-to-br from-gray-700 to-gray-900 text-white font-inter w-64 h-auto transition-all duration-300 transform hover:scale-105">
+                    <h3 class="text-2xl font-starjedi text-yellow-300 mb-4 text-center border-b pb-2 border-gray-600">${char.name}</h3>
+                    ${char.image ? `
+                        <img src="${char.image}" alt="Image of ${char.name}" class="w-24 h-24 rounded-full object-cover mx-auto mb-4 border-2 border-yellow-400 shadow-md" onerror="this.onerror=null;this.src='https://placehold.co/100x100/374151/FFFFFF?text=No+Image';">
+                    ` : ''}
+                    <div class="flex-grow flex flex-col justify-between">
+                        ${statsHtml}
+                    </div>
+                </div>
+            `;
+
+            // Add event listeners for stat selection on player's card
+            if (isPlayerCard && gamePhase === 'choose_stat') {
+                containerElement.querySelectorAll('[data-stat-key]').forEach(statDiv => {
+                    statDiv.addEventListener('click', (event) => {
+                        compareStat(event.currentTarget.dataset.statKey); // Corrected to statKey
+                    });
+                });
+            }
+        }
+
+        // Function to render Yoda's hidden card
+        function renderHiddenCard() {
+            yodaCardContainer.innerHTML = `
+                <div class="flex flex-col items-center justify-center p-6 rounded-xl shadow-lg border-2 border-gray-400 bg-gradient-to-br from-gray-700 to-gray-900 text-white font-inter w-64 h-80 transition-all duration-300 transform">
+                    <p class="text-2xl font-bold mb-4 text-gray-500">Yoda's Card</p>
+                    <div class="w-24 h-24 rounded-full bg-gray-600 mx-auto mb-4 flex items-center justify-center">
+                        <span class="text-4xl text-gray-400">?</span>
+                    </div>
+                    <p class="text-center text-sm text-gray-400">Choose your stat, then reveal.</p>
+                </div>
+            `;
+        }
+
+        // Render current scores
+        function renderScores() {
+            playerScoreElement.textContent = playerScore;
+            yodaScoreElement.textContent = yodaScore;
+        }
+
+        // Render game message
+        function renderMessage() {
+            gameMessageElement.textContent = message;
+        }
+
+        // Render cards based on current state
+        function renderCards() {
+            renderCard(playerCardContainer, playerCard, false, true);
+            if (yodaCardVisible) {
+                renderCard(yodaCardContainer, yodaCard, true, false);
+            } else {
+                renderHiddenCard();
+            }
+        }
+
+        // Render game control buttons based on phase
+        function renderButtons() {
+            startGameBtn.classList.add('hidden');
+            dealNextRoundBtn.classList.add('hidden');
+            playAgainBtn.classList.add('hidden');
+
+            if (gamePhase === 'start') {
+                startGameBtn.classList.remove('hidden');
+            } else if (gamePhase === 'deal' || (gamePhase === 'result' && playerScore < 5 && yodaScore < 5 && deck.length >= 2)) {
+                dealNextRoundBtn.classList.remove('hidden');
+            } else if (gamePhase === 'gameOver') {
+                playAgainBtn.classList.remove('hidden');
+            }
+        }
+
+        // Main game state rendering function
+        function renderGame() {
+            renderScores();
+            renderCards();
+            renderMessage();
+            renderButtons();
+        }
+
+        // Function to fetch Star Wars character data
+        async function fetchCharacters() {
+            loadingIndicator.classList.remove('hidden');
+            gameContent.classList.add('hidden');
+            updateApiStatusMessage("Loading characters from API... A great challenge, it is. Hmmm.", false);
+
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const fetchedData = await response.json(); 
+
+                if (!Array.isArray(fetchedData)) {
+                    throw new Error("API response is not a direct array of characters.");
+                }
+
+                // Filter and parse characters - REMOVED strict Array.isArray checks for films, starships, vehicles
+                const filteredAndParsed = fetchedData.filter(char =>
+                    char.mass != null && char.height != null &&
+                    !isNaN(parseFloat(char.mass)) && !isNaN(parseFloat(char.height)) &&
+                    char.image && typeof char.image === 'string' && char.image.trim() !== '' 
                 ).map(char => ({
                     ...char,
-                    // Ensure counts are calculated for fallback as well
-                    films: char.films,
-                    starships: char.starships,
-                    vehicles: char.vehicles,
-                    born: parseFloat(char.born) || 0, // Parse 'born' for fallback
                     height: parseFloat(char.height) || 0,
-                    mass: parseFloat(char.mass) || 0
+                    mass: parseFloat(char.mass) || 0,
+                    born: parseFloat(char.born) || 0,
+                    // Ensure these are arrays for .length usage, even if API returns null/undefined
+                    films: Array.isArray(char.films) ? char.films : [],
+                    starships: Array.isArray(char.starships) ? char.starships : [],
+                    vehicles: Array.isArray(char.vehicles) ? char.vehicles : [],
+                    affiliations: Array.isArray(char.affiliations) ? char.affiliations : [], // Ensure affiliations is an array
                 }));
-                setCharacters(filteredFallback); // Set fallback characters as master list
-                if (filteredFallback.length === 0) {
-                    setApiStatusMessage("No characters available from API or fallback. Something is wrong. Hmmm.");
-                } else if (!suitableCharactersFound && apiCallSuccessful) { // If API succeeded but no suitable chars
-                    setApiStatusMessage("API returned no suitable characters. Using local characters. Play, you can!");
+
+                if (filteredAndParsed.length > 0) {
+                    characters = filteredAndParsed;
+                    updateApiStatusMessage("Characters loaded from Akabab API. All good, yes!", false);
+                } else {
+                    // If API is fine but no characters passed filters (unlikely for this API)
+                    updateApiStatusMessage("API provided no suitable characters after filtering. Game cannot proceed.", true);
+                    characters = []; // Ensure characters array is empty to prevent game start
+                }
+
+            } catch (error) {
+                console.error("Failed to fetch characters:", error);
+                updateApiStatusMessage(`Failed to load characters: ${error.message}. Game will not start.`, true);
+                characters = []; // Clear characters if API fails
+            } finally {
+                loadingIndicator.classList.add('hidden');
+                gameContent.classList.remove('hidden');
+                renderGame(); // Render game state after loading attempt
+            }
+        }
+
+        // Game Actions
+        function startGame() {
+            if (characters.length === 0) {
+                yodaSpeak("No characters, the game cannot start. Troublesome, this is.");
+                return;
+            }
+            playerScore = 0;
+            yodaScore = 0;
+            playerCard = null;
+            yodaCard = null;
+            message = "A new game begins! Deal the cards, you must.";
+            yodaSpeak("start");
+            gamePhase = 'deal';
+            yodaCardVisible = false;
+            deck = shuffleArray([...characters]); // Initialize and shuffle the deck
+            renderGame();
+        }
+
+        function dealCards() {
+            if (playerScore >= 5 || yodaScore >= 5) {
+                message = "Game already won! Play again, you must.";
+                gamePhase = 'gameOver';
+                renderGame();
+                return;
+            }
+            if (deck.length < 2) {
+                message = "No more cards in the deck! Game over, it is. Or, play again, you can.";
+                gamePhase = 'gameOver';
+                renderGame();
+                yodaSpeak("No more cards. The game ends now. Hmmm.");
+                return;
+            }
+
+            const newDeck = [...deck];
+            playerCard = newDeck.pop();
+            yodaCard = newDeck.pop();
+            deck = newDeck;
+
+            message = "Cards dealt! Choose a stat, young Padawan.";
+            yodaSpeak("deal");
+            gamePhase = 'choose_stat';
+            currentStat = null;
+            yodaCardVisible = false;
+            renderGame();
+        }
+
+        function compareStat(statName) {
+            if (!playerCard || !yodaCard || gamePhase !== 'choose_stat') return;
+
+            currentStat = statName;
+            yodaCardVisible = true;
+
+            let playerValue;
+            let yodaValue;
+
+            if (statName === 'films' || statName === 'starships' || statName === 'vehicles' || statName === 'affiliations') { // Added affiliations
+                playerValue = playerCard[statName].length;
+                yodaValue = yodaCard[statName].length;
+            } else {
+                playerValue = playerCard[statName];
+                yodaValue = yodaCard[statName];
+            }
+
+            let resultMessage = "";
+            let yodaResponse = "";
+
+            if (statName === 'born') {
+                // "Lowest negative number for Birth Year is good" implies chronologically earlier (more BBY) wins.
+                // In negative numbers, -102 is less than -30, meaning -102 BBY is earlier.
+                if (playerValue < yodaValue) { // If player's BBY is numerically smaller (more negative), they win
+                    playerScore++;
+                    resultMessage = `You win this round! Your Birth Year (${playerValue} BBY) is earlier than Yoda's (${yodaValue} BBY).`;
+                    yodaResponse = "win";
+                } else if (yodaValue < playerValue) { // If Yoda's BBY is numerically smaller (more negative), Yoda wins
+                    yodaScore++;
+                    resultMessage = `Yoda wins this round! His Birth Year (${yodaValue} BBY) is earlier than yours (${playerValue} BBY).`;
+                    yodaResponse = "lose";
+                } else {
+                    resultMessage = `It's a draw! Both have Birth Year of ${playerValue} BBY.`;
+                    yodaResponse = "draw";
+                }
+            } else { // Higher value wins for other stats
+                if (playerValue > yodaValue) {
+                    playerScore++;
+                    resultMessage = `You win this round! Your ${statName.charAt(0).toUpperCase() + statName.slice(1)} (${playerValue}) is greater than Yoda's (${yodaValue}).`;
+                    yodaResponse = "win";
+                } else if (yodaValue > playerValue) {
+                    yodaScore++;
+                    resultMessage = `Yoda wins this round! His ${statName.charAt(0).toUpperCase() + statName.slice(1)} (${yodaValue}) is greater than yours (${playerValue}).`;
+                    yodaResponse = "lose";
+                } else {
+                    resultMessage = `It's a draw! Both have ${statName.charAt(0).toUpperCase() + statName.slice(1)} of ${playerValue}.`;
+                    yodaResponse = "draw";
                 }
             }
-            setGamePhase('start'); // Always transition to start phase after loading attempt
-            setIsLoading(false); // Always set loading to false in finally block
-            console.log("Finished fetchCharacters. Total characters loaded (master list):", characters.length); // Log final character count
-        }
-    }, []); 
 
-    // Effect hook to fetch characters when the component mounts
-    useEffect(() => {
-        fetchCharacters();
-    }, [fetchCharacters]);
-
-    // Function to simulate Yoda's speech patterns
-    const yodaSpeak = useCallback((text) => {
-        // Clear any existing timer to avoid overlapping speech bubbles
-        if (yodaSaysTimer) {
-            clearTimeout(yodaSaysTimer);
-        }
-
-        const phrases = [
-            "Hmmmm.",
-            "Much to learn, you still have.",
-            "The Force is strong with this one, yes.",
-            "Patience, young Padawan.",
-            "Do or do not. There is no try.",
-            "Size matters not. Look at me. Judge me by my size, do you?",
-            "Always pass on what you have learned.",
-            "A powerful ally, the Force is.",
-            "Fear is the path to the dark side. Fear leads to anger. Anger leads to hate. Hate leads to suffering.",
-            "Difficult to see. Always in motion is the future.",
-            "That is why you fail.",
-            "Truly wonderful, the mind of a child is.",
-            "Ready, are you? What know you of ready?",
-            "Luminous beings are we, not this crude matter."
-        ];
-
-        let finalSpeech = "";
-        const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
-
-        // Simple rules for transforming the input text (very basic)
-        if (text.includes("win")) {
-            finalSpeech = "Win, you did. The Force is strong with you!";
-        } else if (text.includes("lose")) {
-            finalSpeech = "Lost, you have. Much to learn, you still have.";
-        } else if (text.includes("draw")) {
-            finalSpeech = "A draw it is. The Force, balanced it remains.";
-        } else if (text.includes("start")) {
-            finalSpeech = "Greetings, young Padawan! Ready to play, you are?";
-        } else if (text.includes("deal")) {
-            finalSpeech = "Deal, we shall. May the Force be with us.";
-        } else if (text.includes("stat")) {
-            finalSpeech = "Choose your path, you must. A stat, select!";
-        } else {
-            // Fallback to a random Yoda phrase
-            finalSpeech = randomPhrase;
-        }
-
-        // Add a general Yoda phrase sometimes for flavor
-        if (Math.random() > 0.5 && !finalSpeech.includes("Hmmmm.")) { // 50% chance to add another phrase
-             finalSpeech = `${finalSpeech} ${phrases[Math.floor(Math.random() * phrases.length)]}`;
-        }
-
-
-        setYodaSpeech(finalSpeech);
-
-        // Set a timer to clear Yoda's speech after a few seconds
-        const timer = setTimeout(() => {
-            setYodaSpeech("");
-        }, 8000); // Speech visible for 8 seconds
-        setYodaSaysTimer(timer);
-    }, [yodaSaysTimer]); // Re-create if yodaSaysTimer changes
-
-    // Function to shuffle an array (Fisher-Yates algorithm)
-    const shuffleArray = useCallback((array) => {
-        let currentIndex = array.length, randomIndex;
-        while (currentIndex !== 0) {
-            randomIndex = Math.floor(Math.random() * currentIndex);
-            currentIndex--;
-            [array[currentIndex], array[randomIndex]] = [
-                array[randomIndex], array[currentIndex]];
-        }
-        return array;
-    }, []);
-
-    // Function to start a new game
-    const startGame = useCallback(() => {
-        if (characters.length === 0) {
-            setMessage("No characters available to start the game. The Force is not with us this time. Hmmm.");
-            return; 
-        }
-        setPlayerScore(0);
-        setYodaScore(0);
-        setPlayerCard(null);
-        setYodaCard(null);
-        setMessage("A new game begins! Deal the cards, you must.");
-        yodaSpeak("start");
-        setGamePhase('deal');
-        setYodaCardVisible(false); // Hide Yoda's card at the start of a new game
-        setDeck(shuffleArray([...characters])); // Initialize and shuffle the deck
-    }, [characters, yodaSpeak, shuffleArray]); // Added characters and shuffleArray to deps
-
-    // Function to deal new cards for the round
-    const dealCards = useCallback(() => {
-        // Check if a player has already won the game before dealing new cards
-        if (playerScore >= 5 || yodaScore >= 5) {
-            setMessage("Game already won! Play again, you must.");
-            setGamePhase('gameOver');
-            return;
-        }
-        // Ensure there are enough characters left in the deck for both player and Yoda
-        if (deck.length < 2) {
-            setMessage("No more cards in the deck! Game over, it is. Or, play again, you can.");
-            setGamePhase('gameOver'); // Transition to game over if deck runs out
-            return;
-        }
-
-        // Draw two cards from the deck
-        const newDeck = [...deck];
-        const newPlayerCard = newDeck.pop(); // Take one from the end
-        const newYodaCard = newDeck.pop();   // Take another from the end
-
-        setDeck(newDeck); // Update the deck state
-        setPlayerCard(newPlayerCard);
-        setYodaCard(newYodaCard);
-        setMessage("Cards dealt! Choose a stat, young Padawan.");
-        yodaSpeak("deal");
-        setGamePhase('choose_stat');
-        setCurrentStat(null); // Reset current stat selection
-        setYodaCardVisible(false); // Ensure Yoda's card is hidden when dealing new cards
-    }, [deck, characters, shuffleArray, yodaSpeak, playerScore, yodaScore]); // Added playerScore, yodaScore to deps
-
-    // Function to handle stat comparison
-    const compareStat = useCallback((statName) => {
-        if (!playerCard || !yodaCard) return; // No cards to compare
-
-        setCurrentStat(statName); // Highlight the chosen stat
-        setYodaCardVisible(true); // Reveal Yoda's card when a stat is chosen
-
-        // Access the parsed numerical values from the character object
-        let playerValue;
-        let yodaValue;
-
-        // Note: films, starships, and vehicles are arrays, so we compare their lengths.
-        if (statName === 'films' || statName === 'starships' || statName === 'vehicles') {
-            playerValue = playerCard[statName].length;
-            yodaValue = yodaCard[statName].length;
-        } else {
-            playerValue = playerCard[statName];
-            yodaValue = yodaCard[statName];
-        }
-
-        let resultMessage = "";
-        let yodaResponse = "";
-
-        // Comparison logic (highest BBY wins for born; higher value wins for other stats)
-        if (statName === 'born') { // Comparing 'born' (birth year)
-            // For birth_year, a HIGHER BBY value means an EARLIER birth, so a higher value is better.
-            if (playerValue > yodaValue) {
-                setPlayerScore(prev => prev + 1);
-                resultMessage = `You win this round! Your Birth Year (${playerValue} BBY) is earlier than Yoda's (${yodaValue} BBY).`;
-                yodaResponse = "win";
-            } else if (yodaValue > playerValue) {
-                setYodaScore(prev => prev + 1);
-                resultMessage = `Yoda wins this round! His Birth Year (${yodaValue} BBY) is earlier than yours (${playerValue} BBY).`;
-                yodaResponse = "lose";
+            if (playerScore >= 5 || yodaScore >= 5) {
+                message = resultMessage + " Game over, it is. A victor, there is!";
+                gamePhase = 'gameOver';
             } else {
-                resultMessage = `It's a draw! Both have Birth Year of ${playerValue} BBY.`;
-                yodaResponse = "draw";
+                message = resultMessage + " Next round, deal new cards you must.";
+                gamePhase = 'result';
             }
-        } else {
-            // For other stats (height, mass, films, starships, vehicles), higher value wins
-            if (playerValue > yodaValue) {
-                setPlayerScore(prev => prev + 1);
-                resultMessage = `You win this round! Your ${statName.charAt(0).toUpperCase() + statName.slice(1)} (${playerValue}) is greater than Yoda's (${yodaValue}).`;
-                yodaResponse = "win";
-            } else if (yodaValue > playerValue) {
-                setYodaScore(prev => prev + 1);
-                resultMessage = `Yoda wins this round! His ${statName.charAt(0).toUpperCase() + statName.slice(1)} (${yodaValue}) is greater than yours (${playerValue}).`;
-                yodaResponse = "lose";
-            } else {
-                resultMessage = `It's a draw! Both have ${statName.charAt(0).toUpperCase() + statName.slice(1)} of ${playerValue}.`;
-                yodaResponse = "draw";
-            }
+
+            yodaSpeak(yodaResponse);
+            renderGame(); // Re-render after comparison
         }
 
-        // Determine next game phase and message based on scores
-        const nextPlayerScore = (playerValue > yodaValue) ? playerScore + 1 : playerScore;
-        const nextYodaScore = (yodaValue > playerValue) ? yodaScore + 1 : yodaScore;
+        // Event Listeners
+        startGameBtn.addEventListener('click', startGame);
+        dealNextRoundBtn.addEventListener('click', dealCards);
+        playAgainBtn.addEventListener('click', startGame); // Play Again just calls startGame to reset
 
-        if (nextPlayerScore >= 5 || nextYodaScore >= 5) {
-            setMessage(resultMessage + " Game over, it is. A victor, there is!");
-            setGamePhase('gameOver');
-        } else {
-            setMessage(resultMessage + " Next round, deal new cards you must.");
-            setGamePhase('result');
-        }
+        // Initial fetch and render when the DOM is loaded
+        document.addEventListener('DOMContentLoaded', fetchCharacters);
 
-        yodaSpeak(yodaResponse); // Yoda reacts based on win/loss/draw
-    }, [playerCard, yodaCard, playerScore, yodaScore, yodaSpeak]);
-
-    // Check for game end condition (e.g., first to 5 points)
-    useEffect(() => {
-        // This effect will react to score changes and deck length, ensuring game over is triggered
-        if (playerScore >= 5 || yodaScore >= 5) {
-            let finalMessage = "";
-            if (playerScore > yodaScore) {
-                finalMessage = `Congratulations! You win the game ${playerScore} to ${yodaScore}! The Force is truly strong with you!`;
-                yodaSpeak("The Force is strong with you, young one. Won, you have.");
-            } else if (yodaScore > playerScore) {
-                finalMessage = `Yoda wins the game ${yodaScore} to ${playerScore}! Much to learn, you still have, hmmm.`;
-                yodaSpeak("Won, I have. Much to learn, you still have.");
-            } else {
-                // This case should ideally not be reached if one wins to 5 unless both hit 5 simultaneously which is unlikely with single point system
-                finalMessage = `It's a tie game! The Force remains balanced.`;
-                yodaSpeak("Balanced, the Force remains. A tie, it is.");
-            }
-            setMessage(finalMessage);
-            setGamePhase('gameOver');
-        } else if (gamePhase !== 'start' && deck.length < 2 && playerScore + yodaScore > 0) { // If game is in progress and deck runs out
-            let finalMessage = "No more cards in the deck! ";
-            if (playerScore > yodaScore) {
-                finalMessage += `You win the game ${playerScore} to ${yodaScore}! The deck has run dry.`;
-                yodaSpeak("No more cards. Won, you have, by the Force's will.");
-            } else if (yodaScore > playerScore) {
-                finalMessage += `Yoda wins the game ${yodaScore} to ${playerScore}! The deck has run dry.`;
-                yodaSpeak("No more cards. Won, I have. Hmmm.");
-            } else {
-                finalMessage += `It's a tie game! The deck has run dry. The Force, balanced it remains.`;
-                yodaSpeak("No more cards. A draw, it is. Balanced, the Force.");
-            }
-            setMessage(finalMessage);
-            setGamePhase('gameOver');
-        }
-    }, [gamePhase, playerScore, yodaScore, yodaSpeak, deck.length]);
-
-    // Component to display a character card
-    const Card = ({ character, isYoda = false, isPlayer = false, onStatSelect = null, currentStat = null }) => {
-        if (!character) {
-            return (
-                <div className={`flex flex-col items-center justify-center p-6 rounded-xl shadow-lg border-2 ${isYoda ? 'border-green-500' : (isPlayer ? 'border-blue-500' : 'border-gray-400')} bg-gradient-to-br from-gray-700 to-gray-900 text-white font-inter w-64 h-80 transition-all duration-300 transform hover:scale-105`}>
-                    <p className="text-xl font-bold mb-4">No Card</p>
-                    <p className="text-center text-sm">Deal a card to begin.</p>
-                </div>
-            );
-        }
-
-        // Map display names to their corresponding API keys for easier stat selection
-        const statDisplayToKey = {
-            "Height (cm)": "height",
-            "Mass (kg)": "mass",
-            "Films": "films",
-            "Starships": "starships",
-            "Vehicles": "vehicles",
-            "Birth Year (BBY)": "born"
-        };
-
-        // Access values for display, using .length for arrays for Films, Starships, Vehicles
-        const stats = {
-            "Height (cm)": character.height,
-            "Mass (kg)": character.mass,
-            "Films": character.films.length, 
-            "Starships": character.starships.length, 
-            "Vehicles": character.vehicles.length, 
-            "Birth Year (BBY)": character.born 
-        };
-
-        return (
-            <div className={`flex flex-col p-6 rounded-xl shadow-lg border-2 ${isYoda ? 'border-green-500' : (isPlayer ? 'border-blue-500' : 'border-gray-400')} bg-gradient-to-br from-gray-700 to-gray-900 text-white font-inter w-64 h-auto transition-all duration-300 transform hover:scale-105`}>
-                <h3 className="text-2xl font-starjedi text-yellow-300 mb-4 text-center border-b pb-2 border-gray-600">{character.name}</h3>
-                {character.image && (
-                    <img
-                        src={character.image}
-                        alt={character.name}
-                        className="w-24 h-24 rounded-full object-cover mx-auto mb-4 border-2 border-yellow-400 shadow-md"
-                        onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/100x100/374151/FFFFFF?text=No+Image"; }} // Fallback image on error
-                    />
-                )}
-                <div className="flex-grow flex flex-col justify-between">
-                    {Object.entries(stats).map(([name, value]) => (
-                        <div key={name} className={`flex justify-between items-center py-2 px-3 rounded-lg mb-1 cursor-pointer transition-all duration-200 ${onStatSelect ? 'hover:bg-gray-700' : ''} ${
-                            // Highlight logic for selected stat using the statKey
-                            currentStat === statDisplayToKey[name] ? 'bg-yellow-600 text-black font-bold scale-105' : 'bg-gray-800'
-                        }`}
-                            // Pass the correct stat key to compareStat
-                            onClick={() => onStatSelect && onStatSelect(statDisplayToKey[name])}>
-                            <span className="text-sm md:text-base">{name}:</span>
-                            <span className="text-sm md:text-base font-semibold">{value === 'unknown' || (typeof value === 'number' && value === 0) ? 'N/A' : value}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        );
-    };
-
-    // Card component for Yoda's hidden card
-    const HiddenCard = () => {
-        return (
-            <div className="flex flex-col items-center justify-center p-6 rounded-xl shadow-lg border-2 border-gray-400 bg-gradient-to-br from-gray-700 to-gray-900 text-white font-inter w-64 h-80 transition-all duration-300 transform">
-                <p className="text-2xl font-bold mb-4 text-gray-500">Yoda's Card</p>
-                <div className="w-24 h-24 rounded-full bg-gray-600 mx-auto mb-4 flex items-center justify-center">
-                    <span className="text-4xl text-gray-400">?</span>
-                </div>
-                <p className="text-center text-sm text-gray-400">Choose your stat, then reveal.</p>
-            </div>
-        );
-    };
-
-    // Main render
-    return (
-        <div className="min-h-screen bg-gray-900 text-gray-200 font-inter flex flex-col items-center justify-center p-4">
-            {/* Tailwind CSS Font Setup */}
-            <script src="https://cdn.tailwindcss.com"></script>
-            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
-            <style>
-                {`
-                @font-face {
-                    font-family: 'Star Jedi';
-                    src: url('https://raw.githubusercontent.com/Anupam-dps/Star-Wars-Font/main/starjedi/Starjedi.ttf') format('truetype');
-                    font-weight: normal;
-                    font-style: normal;
-                }
-                .font-starjedi {
-                    font-family: 'Star Jedi', sans-serif;
-                }
-                `}
-            </style>
-
-            <h1 className="text-5xl font-starjedi text-yellow-400 mb-8 tracking-widest text-center">
-                Star Wars Top Trumps
-            </h1>
-
-            {/* API Status Message */}
-            {apiStatusMessage && (
-                <div className={`text-center py-2 px-4 rounded-lg mb-4 ${apiStatusMessage.includes("Error") || apiStatusMessage.includes("failed") ? 'bg-red-800' : 'bg-green-800'} text-white`}>
-                    {apiStatusMessage}
-                </div>
-            )}
-
-            {isLoading ? (
-                <div className="text-xl text-green-400">Loading characters... The Force, it loads.</div>
-            ) : (
-                <>
-                    {/* Scores Display */}
-                    <div className="flex justify-center items-center mb-8 bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 w-full max-w-md">
-                        <span className="text-2xl font-bold text-blue-400 mr-4">Player: {playerScore}</span>
-                        <span className="text-xl font-medium text-gray-400">vs</span>
-                        <span className="text-2xl font-bold text-green-400 ml-4">Yoda: {yodaScore}</span>
-                    </div>
-
-                    {/* Yoda Speech Bubble */}
-                    <div className="relative mb-8 p-4 bg-green-700 text-white rounded-2xl shadow-xl border-2 border-green-500 max-w-md w-full text-center transition-opacity duration-500"
-                         style={{ opacity: yodaSpeech ? 1 : 0, transform: yodaSpeech ? 'translateY(0)' : 'translateY(20px)' }}>
-                        <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[10px] border-l-transparent border-r-transparent border-t-green-700"></div>
-                        <p className="font-semibold text-lg italic">{yodaSpeech}</p>
-                    </div>
-
-                    {/* Game Cards Area */}
-                    <div className="flex flex-col md:flex-row justify-center items-center gap-8 mb-8">
-                        <div className="flex flex-col items-center">
-                            <h2 className="text-xl font-bold mb-4 text-blue-300">Your Card</h2>
-                            <Card
-                                character={playerCard}
-                                isPlayer={true}
-                                onStatSelect={gamePhase === 'choose_stat' ? compareStat : null}
-                                currentStat={currentStat}
-                            />
-                        </div>
-                        <div className="text-3xl font-starjedi text-yellow-300 hidden md:block">VS</div>
-                        <div className="flex flex-col items-center">
-                            <h2 className="text-xl font-bold mb-4 text-green-300">Yoda's Card</h2>
-                            {yodaCardVisible ? (
-                                <Card
-                                    character={yodaCard}
-                                    isYoda={true}
-                                    currentStat={currentStat} // Yoda's card also highlights the chosen stat
-                                />
-                            ) : (
-                                <HiddenCard />
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Game Messages */}
-                    <div className="text-lg text-center my-4 font-semibold text-gray-300 max-w-xl">
-                        {message}
-                    </div>
-
-                    {/* Game Controls */}
-                    <div className="flex flex-wrap justify-center gap-4 mt-4">
-                        {gamePhase === 'start' && (
-                            <button
-                                onClick={startGame}
-                                className="px-8 py-3 bg-yellow-500 text-gray-900 font-bold rounded-full shadow-lg hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105 active:scale-95 border-2 border-yellow-600"
-                            >
-                                Start Game
-                            </button>
-                        )}
-
-                        {(gamePhase === 'deal' || (gamePhase === 'result' && (playerScore < 5 && yodaScore < 5))) && (
-                            <button
-                                onClick={dealCards}
-                                className="px-8 py-3 bg-blue-500 text-white font-bold rounded-full shadow-lg hover:bg-blue-400 transition-all duration-300 transform hover:scale-105 active:scale-95 border-2 border-blue-600"
-                            >
-                                Deal Next Round
-                            </button>
-                        )}
-
-                        {gamePhase === 'gameOver' && (
-                            <button
-                                onClick={startGame}
-                                className="px-8 py-3 bg-red-600 text-white font-bold rounded-full shadow-lg hover:bg-red-500 transition-all duration-300 transform hover:scale-105 active:scale-95 border-2 border-red-700"
-                            >
-                                Play Again
-                            </button>
-                        )}
-                    </div>
-                </>
-            )}
-        </div>
-    );
-};
-
-export default App;
+    </script>
+</body>
+</html>
